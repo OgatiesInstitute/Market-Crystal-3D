@@ -172,29 +172,39 @@ function drawLines() {
                     const endPos = targetNode.sphere.position;
                     const distance = startPos.distanceTo(endPos);
                     
-                    // 【共通ルール】
-                    // 距離の逆二乗に比例して透明度を下げる (1/d^2)
-                    // この数式自体は全年代で共通。
-                    let opacity = 8000 / (distance * distance); 
+                    // 【共通の物理ルール】
+                    // 距離が近いほど太く、遠いほど細くする
+                    // 1989年は距離50〜100なので radius は 1.5〜0.8 程度（太い）
+                    // 2026年は距離500〜800なので radius は 0.1〜0.05 程度（極細）
+                    let radius = 80 / (distance + 1); 
                     
-                    // 表示の限界値を設定（共通）
-                    if (opacity > 0.6) opacity = 0.6; // 最大の濃さ
-                    if (opacity < 0.01) opacity = 0;  // 一定以上離れたら（相関が弱ければ）見えなくする
+                    // 見た目のコントラストを調整（共通）
+                    if (radius > 2.0) radius = 2.0; // 太すぎ防止
+                    if (radius < 0.05) radius = 0.01; // 遠ければ見えないほど細く
 
-                    const lineMaterial = new THREE.LineBasicMaterial({ 
+                    // 線ではなく「円柱（チューブ）」で描画
+                    const direction = new THREE.Vector3().subVectors(endPos, startPos);
+                    const geometry = new THREE.CylinderGeometry(radius, radius, distance, 8);
+                    
+                    // 円柱を2点間に配置するための計算
+                    geometry.translate(0, distance / 2, 0);
+                    geometry.rotateX(Math.PI / 2);
+                    
+                    const material = new THREE.MeshBasicMaterial({ 
                         color: lineColor, 
                         transparent: true, 
-                        opacity: opacity 
+                        opacity: radius > 0.5 ? 0.6 : 0.2 // 太いほど不透明、細いほど透明に
                     });
 
-                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([startPos, endPos]);
-                    const line = new THREE.Line(lineGeometry, lineMaterial);
-                    scene.add(line);
-                    lines.push(line);
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.copy(startPos);
+                    mesh.lookAt(endPos);
+                    
+                    scene.add(mesh);
+                    lines.push(mesh);
                 }
             });
         }
-
         function animate() {
             requestAnimationFrame(animate);
             
