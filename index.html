@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Topology: 1989 vs 2026</title>
+    <style>
+        body { margin: 0; background: radial-gradient(circle, #1a1a1a 0%, #000 100%); overflow: hidden; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 20px; border-radius: 8px; border: 1px solid #444; }
+        h1 { margin: 0 0 10px 0; font-size: 18px; letter-spacing: 1px; color: #00d4ff; }
+        .btn-group { display: flex; gap: 10px; }
+        button { background: #333; color: #fff; border: 1px solid #666; padding: 8px 15px; cursor: pointer; transition: 0.3s; border-radius: 4px; }
+        button:hover { background: #00d4ff; color: #000; border-color: #fff; }
+        #desc { margin-top: 15px; font-size: 12px; line-height: 1.5; color: #ccc; max-width: 250px; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>MARKET TOPOLOGY</h1>
+        <div class="btn-group">
+            <button onclick="transitionTo('1989')">1989 (2D)</button>
+            <button onclick="transitionTo('2026')">2026 (3D)</button>
+        </div>
+        <div id="desc">
+            1989年の「持ち合い」による平面構造（赤いタイヤ）から、2026年の自律的な多次元構造（青いクリスタル）への進化を可視化します。
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let points = {}; // 業種ごとのMeshを格納
+        let data1989 = [], data2026 = [];
+
+        async function init() {
+            // シーン・カメラ・レンダラーの設定
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 250;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // 光源
+            const light = new THREE.PointLight(0xffffff, 1, 500);
+            light.position.set(100, 100, 100);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040));
+
+            // データの読み込み
+            try {
+                const res1989 = await fetch('structure_1989.json');
+                data1989 = await res1989.json();
+                const res2026 = await fetch('structure_2026.json');
+                data2026 = await res2026.json();
+
+                createNodes(data2026); // 初期状態として2026年を表示
+            } catch (e) {
+                console.error("JSONデータの読み込みに失敗しました。ファイル名を確認してください。", e);
+            }
+
+            animate();
+        }
+
+        function createNodes(data) {
+            const geometry = new THREE.SphereGeometry(4, 24, 24);
+            data.forEach(item => {
+                const material = new THREE.MeshPhongMaterial({ color: 0x00d4ff, shininess: 100 });
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.set(item.x, item.y, item.z);
+                scene.add(sphere);
+                points[item.id] = sphere;
+            });
+        }
+
+        // 年代を切り替える際のアニメーション（簡易モーフィング）
+        function transitionTo(year) {
+            const targetData = (year === '1989') ? data1989 : data2026;
+            const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
+
+            targetData.forEach(item => {
+                if (points[item.id]) {
+                    // 本来はTweenライブラリを使うと綺麗ですが、簡易的に瞬時に移動
+                    points[item.id].position.set(item.x, item.y, item.z);
+                    points[item.id].material.color.setHex(targetColor);
+                }
+            });
+            document.getElementById('desc').innerText = 
+                (year === '1989') ? "1989年：株式持ち合いにより、全セクターが単一のモメンタムに囚われた『平面構造』です。" : 
+                                  "2026年：各セクターが独自の座標を持つ、レジリエンス（復元力）の高い『多次元構造』です。";
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
