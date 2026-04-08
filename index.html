@@ -57,7 +57,7 @@
             scene.add(new THREE.AmbientLight(0x999999));
 
             try {
-                // ファイル名をリポジトリの実名に合わせ、キャッシュを避けるためタイムスタンプ付与
+                // データ取得（キャッシュ回避）
                 const res1989 = await fetch('./structure_1989_simulated.json?' + Date.now());
                 data1989 = await res1989.json();
                 const res2026 = await fetch('./structure_2026.json?' + Date.now());
@@ -65,10 +65,24 @@
 
                 document.getElementById('loading').style.display = 'none';
                 
-                // 最初に全ての点を作成
-                createNodes(data2026); 
-                // 初期状態を2026年にセット
+                // 1. まず1989年と2026年の両方にあるIDをすべて集めて点を作る
+                const allIds = new Set([...data1989.map(d => d.id), ...data2026.map(d => d.id)]);
+                
+                const geometry = new THREE.SphereGeometry(8, 32, 32);
+                allIds.forEach(id => {
+                    const material = new THREE.MeshPhongMaterial({ 
+                        color: 0x00d4ff, 
+                        emissive: 0x002244,
+                        shininess: 100 
+                    });
+                    const sphere = new THREE.Mesh(geometry, material);
+                    scene.add(sphere);
+                    points[id] = sphere;
+                });
+
+                // 2. 初期レイアウトを適用
                 updateLayout('2026');
+
             } catch (e) {
                 console.error("Data Load Error:", e);
                 document.getElementById('loading').innerText = "ERROR LOADING DATA";
@@ -76,21 +90,7 @@
             animate();
         }
 
-        function createNodes(data) {
-            const geometry = new THREE.SphereGeometry(8, 32, 32); // 少し大きくしました
-            data.forEach(item => {
-                const material = new THREE.MeshPhongMaterial({ 
-                    color: 0x00d4ff, 
-                    emissive: 0x002244,
-                    shininess: 100 
-                });
-                const sphere = new THREE.Mesh(geometry, material);
-                scene.add(sphere);
-                points[item.id] = sphere;
-            });
-        }
-
-        // transitionTo を updateLayout に統合して確実性をアップ
+        // ボタンから直接呼び出せるようにグローバルに関数を登録
         window.transitionTo = function(year) {
             console.log("Switching to:", year);
             updateLayout(year);
@@ -101,9 +101,14 @@
             const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
             const targetEmissive = (year === '1989') ? 0x440000 : 0x002244;
 
+            // 全ての点を一度隠す
+            Object.values(points).forEach(p => p.visible = false);
+
+            // ターゲットデータにある点だけを表示して移動させる
             targetData.forEach(item => {
                 const sphere = points[item.id];
                 if (sphere) {
+                    sphere.visible = true;
                     sphere.position.set(item.x, item.y, item.z);
                     sphere.material.color.setHex(targetColor);
                     sphere.material.emissive.setHex(targetEmissive);
