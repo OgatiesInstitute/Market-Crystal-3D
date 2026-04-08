@@ -153,7 +153,11 @@
             document.getElementById('desc').innerText = descText;
         }
 
-        function drawLines() {
+function drawLines() {
+            // 既存の線をクリア
+            lines.forEach(line => scene.remove(line));
+            lines = [];
+
             const centerNode = points['Bank'];
             if (!centerNode) return;
             
@@ -165,14 +169,24 @@
                 const targetNode = points[item.id];
                 
                 if (targetNode && targetNode.sphere.visible) {
-                    const distance = centerNode.sphere.position.distanceTo(targetNode.sphere.position);
+                    // 現在の「見たままの座標」を取得
+                    const startPos = centerNode.sphere.position;
+                    const endPos = targetNode.sphere.position;
+                    const distance = startPos.distanceTo(endPos);
                     
-                    // Correlation-weight logic: thicker/brighter when closer
-                    let opacity = 150 / distance; 
-                    if (currentYear === '2026') opacity *= 0.5; 
+                    // 【ここがポイント】
+                    // 1989年は距離が近い（50〜100程度）ので、opacityが高くなる。
+                    // 2026年は距離が遠い（300〜500以上）ので、opacityが極めて低くなる。
+                    let opacity = 200 / distance; 
                     
-                    if (opacity > 0.6) opacity = 0.6;
-                    if (opacity < 0.05) opacity = 0.05;
+                    if (currentYear === '2026') {
+                        opacity *= 0.3; // 2026年は意図的にさらに薄くして「解放感」を強調
+                    } else {
+                        opacity *= 1.2; // 1989年はより「癒着感」を強調
+                    }
+                    
+                    if (opacity > 0.7) opacity = 0.7;
+                    if (opacity < 0.02) opacity = 0.02;
 
                     const lineMaterial = new THREE.LineBasicMaterial({ 
                         color: lineColor, 
@@ -180,10 +194,7 @@
                         opacity: opacity 
                     });
 
-                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-                        centerNode.sphere.position,
-                        targetNode.sphere.position
-                    ]);
+                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([startPos, endPos]);
                     const line = new THREE.Line(lineGeometry, lineMaterial);
                     scene.add(line);
                     lines.push(line);
