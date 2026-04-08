@@ -11,7 +11,7 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
         button { background: #222; color: #fff; border: 1px solid #00d4ff; padding: 10px 20px; cursor: pointer; transition: all 0.3s; border-radius: 4px; font-weight: bold; }
         button:hover { background: #00d4ff; color: #000; box-shadow: 0 0 15px #00d4ff; }
-        #desc { font-size: 13px; line-height: 1.6; color: #ccc; max-width: 280px; border-top: 1px solid #333; pt: 10px; }
+        #desc { font-size: 13px; line-height: 1.6; color: #ccc; max-width: 280px; border-top: 1px solid #333; padding-top: 10px; }
         #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; letter-spacing: 5px; color: #00d4ff; }
     </style>
 </head>
@@ -25,13 +25,11 @@
             <button onclick="transitionTo('1989')">1989 (2D)</button>
             <button onclick="transitionTo('2026')">2026 (3D)</button>
         </div>
-        <div id="desc">
-            Initializing structure...
-        </div>
+        <div id="desc">Initializing structure...</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
 
     <script>
         let scene, camera, renderer, controls;
@@ -57,7 +55,6 @@
             scene.add(new THREE.AmbientLight(0x999999));
 
             try {
-                // データ取得（キャッシュ回避）
                 const res1989 = await fetch('./structure_1989_simulated.json?' + Date.now());
                 data1989 = await res1989.json();
                 const res2026 = await fetch('./structure_2026.json?' + Date.now());
@@ -65,11 +62,12 @@
 
                 document.getElementById('loading').style.display = 'none';
                 
-                // 1. まず1989年と2026年の両方にあるIDをすべて集めて点を作る
+                // 全ての業種IDを取得して点とラベルを作成
                 const allIds = new Set([...data1989.map(d => d.id), ...data2026.map(d => d.id)]);
-                
                 const geometry = new THREE.SphereGeometry(8, 32, 32);
+
                 allIds.forEach(id => {
+                    // ノード（球体）
                     const material = new THREE.MeshPhongMaterial({ 
                         color: 0x00d4ff, 
                         emissive: 0x002244,
@@ -77,12 +75,27 @@
                     });
                     const sphere = new THREE.Mesh(geometry, material);
                     scene.add(sphere);
-                    points[id] = sphere;
+
+                    // ラベル（Sprite）
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = 256;
+                    canvas.height = 64;
+                    context.font = 'Bold 40px Arial';
+                    context.fillStyle = 'white';
+                    context.textAlign = 'center';
+                    context.fillText(id, 128, 45);
+
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                    const sprite = new THREE.Sprite(spriteMaterial);
+                    sprite.scale.set(40, 10, 1);
+                    scene.add(sprite);
+
+                    points[id] = { sphere: sphere, label: sprite };
                 });
 
-                // 2. 初期レイアウトを適用
                 updateLayout('2026');
-
             } catch (e) {
                 console.error("Data Load Error:", e);
                 document.getElementById('loading').innerText = "ERROR LOADING DATA";
@@ -90,9 +103,7 @@
             animate();
         }
 
-        // ボタンから直接呼び出せるようにグローバルに関数を登録
         window.transitionTo = function(year) {
-            console.log("Switching to:", year);
             updateLayout(year);
         };
 
@@ -101,17 +112,20 @@
             const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
             const targetEmissive = (year === '1989') ? 0x440000 : 0x002244;
 
-            // 全ての点を一度隠す
-            Object.values(points).forEach(p => p.visible = false);
+            Object.values(points).forEach(p => {
+                p.sphere.visible = false;
+                p.label.visible = false;
+            });
 
-            // ターゲットデータにある点だけを表示して移動させる
             targetData.forEach(item => {
-                const sphere = points[item.id];
-                if (sphere) {
-                    sphere.visible = true;
-                    sphere.position.set(item.x, item.y, item.z);
-                    sphere.material.color.setHex(targetColor);
-                    sphere.material.emissive.setHex(targetEmissive);
+                const node = points[item.id];
+                if (node) {
+                    node.sphere.visible = true;
+                    node.label.visible = true;
+                    node.sphere.position.set(item.x, item.y, item.z);
+                    node.label.position.set(item.x, item.y + 15, item.z);
+                    node.sphere.material.color.setHex(targetColor);
+                    node.sphere.material.emissive.setHex(targetEmissive);
                 }
             });
 
