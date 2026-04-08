@@ -31,11 +31,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
 
-    <script>
+<script>
         let scene, camera, renderer, controls;
         let points = {}; 
-        let lines = []; // 追加：鎖（線）を管理する配列
+        let lines = [];
         let data1989 = [], data2026 = [];
+        
+        // アニメーション管理用
+        let isTransitioning = false;
+        let transitionProgress = 0;
+        let currentYear = '2026';
 
         async function init() {
             scene = new THREE.Scene();
@@ -77,8 +82,7 @@
 
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
-                    canvas.width = 256;
-                    canvas.height = 64;
+                    canvas.width = 256; canvas.height = 64;
                     context.font = 'Bold 40px Arial';
                     context.fillStyle = 'white';
                     context.textAlign = 'center';
@@ -90,76 +94,109 @@
                     sprite.scale.set(40, 10, 1);
                     scene.add(sprite);
 
-                    points[id] = { sphere: sphere, label: sprite };
+                    // startPos, endPos を保持できるように拡張
+                    points[id] = { 
+                        sphere: sphere, 
+                        label: sprite,
+                        startPos: new THREE.Vector3(),
+                        endPos: new THREE.Vector3()
+                    };
                 });
 
-                updateLayout('2026');
+                updateLayout('2026', false); // 最初はアニメーションなしで表示
             } catch (e) {
                 console.error("Data Load Error:", e);
-                document.getElementById('loading').innerText = "ERROR LOADING DATA";
             }
             animate();
         }
 
         window.transitionTo = function(year) {
-            updateLayout(year);
+            if (year === currentYear) return;
+            currentYear = year;
+            updateLayout(year, true); // アニメーションを有効にする
         };
 
-        function updateLayout(year) {
+        function updateLayout(year, animate) {
             const targetData = (year === '1989') ? data1989 : data2026;
             const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
             const targetEmissive = (year === '1989') ? 0x440000 : 0x002244;
 
-            // 既存の線を削除
+            // 鎖は一旦消す
             lines.forEach(line => scene.remove(line));
             lines = [];
-
-            Object.values(points).forEach(p => {
-                p.sphere.visible = false;
-                p.label.visible = false;
-            });
 
             targetData.forEach(item => {
                 const node = points[item.id];
                 if (node) {
                     node.sphere.visible = true;
                     node.label.visible = true;
-                    node.sphere.position.set(item.x, item.y, item.z);
-                    node.label.position.set(item.x, item.y + 15, item.z);
+                    
+                    if (animate) {
+                        // 現在の場所を開始地点に、新しい場所を終了地点にセット
+                        node.startPos.copy(node.sphere.position);
+                        node.endPos.set(item.x, item.y, item.z);
+                    } else {
+                        node.sphere.position.set(item.x, item.y, item.z);
+                        node.label.position.set(item.x, item.y + 15, item.z);
+                    }
                     node.sphere.material.color.setHex(targetColor);
                     node.sphere.material.emissive.setHex(targetEmissive);
                 }
             });
 
-            // 1989年限定：銀行(Bank)を起点とした「鎖」の描画
-            if (year === '1989') {
-                const centerNode = points['Bank'];
-                if (centerNode) {
-                    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.3 });
-                    targetData.forEach(item => {
-                        if (item.id === 'Bank') return;
-                        const targetNode = points[item.id];
-                        if (targetNode) {
-                            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-                                centerNode.sphere.position,
-                                targetNode.sphere.position
-                            ]);
-                            const line = new THREE.Line(lineGeometry, lineMaterial);
-                            scene.add(line);
-                            lines.push(line);
-                        }
-                    });
-                }
+            if (animate) {
+                isTransitioning = true;
+                transitionProgress = 0;
+            } else {
+                if (year === '1989') drawLines(); // 即時表示の時のみ
             }
 
             const descText = (year === '1989') ? 
-                "【1989年】株式持ち合いによる平面構造。銀行をハブとした強固な相関の鎖に縛られています。" : 
-                "【2026年】鎖は解かれ、各セクターは独自のベクトルで3次元空間を自由に展開しています。";
+                "【1989年】株式持ち合いによる平面構造へ収束中..." : 
+                "【2026年】自律的な多次元構造へ解放中...";
             document.getElementById('desc').innerText = descText;
+        }
+
+        function drawLines() {
+            const centerNode = points['Bank'];
+            if (!centerNode || currentYear !== '1989') return;
+            
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.3 });
+            data1989.forEach(item => {
+                if (item.id === 'Bank') return;
+                const targetNode = points[item.id];
+                if (targetNode && targetNode.sphere.visible) {
+                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                        centerNode.sphere.position,
+                        targetNode.sphere.position
+                    ]);
+                    const line = new THREE.Line(lineGeometry, lineMaterial);
+                    scene.add(line);
+                    lines.push(line);
+                }
+            });
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            
+            if (isTransitioning) {
+                transitionProgress += 0.02; // 移動スピード（0.01〜0.05で調整）
+                if (transitionProgress >= 1) {
+                    transitionProgress = 1;
+                    isTransitioning = false;
+                    if (currentYear === '1989') drawLines(); // 移動完了後に鎖を描く
+                }
+
+                Object.values(points).forEach(node => {
+                    if (node.sphere.visible) {
+                        // 線形補間(lerp)で滑らかに移動
+                        node.sphere.position.lerpVectors(node.startPos, node.endPos, transitionProgress);
+                        node.label.position.copy(node.sphere.position).y += 15;
+                    }
+                });
+            }
+
             if (controls) controls.update();
             renderer.render(scene, camera);
         }
