@@ -159,8 +159,7 @@ function drawLines() {
 
     const centerNode = points['Bank'];
     if (!centerNode) return;
-    console.log(`${currentYear} Bank to Construction distance: ${distance}`);
-    // データセットだけは切り替えるが、描画ルールは「完全に」共通化
+    
     const targetData = (currentYear === '1989') ? data1989 : data2026;
     const lineColor = (currentYear === '1989') ? 0xff4444 : 0x00d4ff;
     
@@ -173,21 +172,24 @@ function drawLines() {
             const endPos = targetNode.sphere.position;
             const distance = startPos.distanceTo(endPos);
             
-            // 【完全共通ルール：一切の if (year === ...) を排除】
-            // 距離に対して一意に決まる太さ（radius）
+            // --- ここにログを移動！ ---
+            if (item.id === 'Construction') {
+                console.log(`[${currentYear}] Bank to Construction distance:`, distance);
+            }
+            if (item.id === 'Securities') {
+                console.log(`[${currentYear}] Bank to Securities distance:`, distance);
+            }
+            // ------------------------
+
             let radius = 60 / (distance + 1); 
             
-            // 閾値処理も共通
             if (radius > 1.5) radius = 1.5; 
             if (radius < 0.05) radius = 0.01; 
 
-            const direction = new THREE.Vector3().subVectors(endPos, startPos);
             const geometry = new THREE.CylinderGeometry(radius, radius, distance, 8);
-            
             geometry.translate(0, distance / 2, 0);
             geometry.rotateX(Math.PI / 2);
             
-            // 透明度も radius（つまり距離）だけに依存させる
             const material = new THREE.MeshBasicMaterial({ 
                 color: lineColor, 
                 transparent: true, 
