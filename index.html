@@ -181,7 +181,7 @@
             requestAnimationFrame(animate);
             
             if (isTransitioning) {
-                transitionProgress += 0.01; // 移動スピード（0.01〜0.05で調整）
+                transitionProgress += 0.005; // 移動スピード（0.01〜0.05で調整）
                 if (transitionProgress >= 1) {
                     transitionProgress = 1;
                     isTransitioning = false;
