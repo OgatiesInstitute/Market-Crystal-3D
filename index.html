@@ -152,8 +152,8 @@
             }
 
             const descText = (year === '1989') ? 
-                "【1989年】株式持ち合いによる平面構造へ収束中..." : 
-                "【2026年】自律的な多次元構造へ解放中...";
+                "【1989】Structural Convergence: A rigid 2D plane driven by cross-shareholdings." : 
+                "【2026】Multidimensional Divergence: Autonomous growth in a 3D fundamental space.";
             document.getElementById('desc').innerText = descText;
         }
 
@@ -181,7 +181,7 @@
             requestAnimationFrame(animate);
             
             if (isTransitioning) {
-                transitionProgress += 0.02; // 移動スピード（0.01〜0.05で調整）
+                transitionProgress += 0.01; // 移動スピード（0.01〜0.05で調整）
                 if (transitionProgress >= 1) {
                     transitionProgress = 1;
                     isTransitioning = false;
