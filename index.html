@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,22 +22,21 @@
     <div id="ui">
         <h1>Market Topology</h1>
         <div class="btn-group">
-            <button onclick="transitionTo('1989')">1989 (2D)</button>
-            <button onclick="transitionTo('2026')">2026 (3D)</button>
+            <button onclick="transitionTo('1989')">1989 Mode</button>
+            <button onclick="transitionTo('2026')">2026 Mode</button>
         </div>
-        <div id="desc">Initializing structure...</div>
+        <div id="desc">Initializing market structure...</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
 
-<script>
+    <script>
         let scene, camera, renderer, controls;
         let points = {}; 
         let lines = [];
         let data1989 = [], data2026 = [];
         
-        // アニメーション管理用
         let isTransitioning = false;
         let transitionProgress = 0;
         let currentYear = '2026';
@@ -94,7 +93,6 @@
                     sprite.scale.set(40, 10, 1);
                     scene.add(sprite);
 
-                    // startPos, endPos を保持できるように拡張
                     points[id] = { 
                         sphere: sphere, 
                         label: sprite,
@@ -103,7 +101,7 @@
                     };
                 });
 
-                updateLayout('2026', false); // 最初はアニメーションなしで表示
+                updateLayout('2026', false);
             } catch (e) {
                 console.error("Data Load Error:", e);
             }
@@ -113,7 +111,7 @@
         window.transitionTo = function(year) {
             if (year === currentYear) return;
             currentYear = year;
-            updateLayout(year, true); // アニメーションを有効にする
+            updateLayout(year, true);
         };
 
         function updateLayout(year, animate) {
@@ -121,7 +119,6 @@
             const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
             const targetEmissive = (year === '1989') ? 0x440000 : 0x002244;
 
-            // 鎖は一旦消す
             lines.forEach(line => scene.remove(line));
             lines = [];
 
@@ -132,7 +129,6 @@
                     node.label.visible = true;
                     
                     if (animate) {
-                        // 現在の場所を開始地点に、新しい場所を終了地点にセット
                         node.startPos.copy(node.sphere.position);
                         node.endPos.set(item.x, item.y, item.z);
                     } else {
@@ -148,7 +144,7 @@
                 isTransitioning = true;
                 transitionProgress = 0;
             } else {
-                if (year === '1989') drawLines(); // 即時表示の時のみ
+                drawLines();
             }
 
             const descText = (year === '1989') ? 
@@ -159,13 +155,31 @@
 
         function drawLines() {
             const centerNode = points['Bank'];
-            if (!centerNode || currentYear !== '1989') return;
+            if (!centerNode) return;
             
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.3 });
-            data1989.forEach(item => {
+            const targetData = (currentYear === '1989') ? data1989 : data2026;
+            const lineColor = (currentYear === '1989') ? 0xff4444 : 0x00d4ff;
+            
+            targetData.forEach(item => {
                 if (item.id === 'Bank') return;
                 const targetNode = points[item.id];
+                
                 if (targetNode && targetNode.sphere.visible) {
+                    const distance = centerNode.sphere.position.distanceTo(targetNode.sphere.position);
+                    
+                    // Correlation-weight logic: thicker/brighter when closer
+                    let opacity = 150 / distance; 
+                    if (currentYear === '2026') opacity *= 0.5; 
+                    
+                    if (opacity > 0.6) opacity = 0.6;
+                    if (opacity < 0.05) opacity = 0.05;
+
+                    const lineMaterial = new THREE.LineBasicMaterial({ 
+                        color: lineColor, 
+                        transparent: true, 
+                        opacity: opacity 
+                    });
+
                     const lineGeometry = new THREE.BufferGeometry().setFromPoints([
                         centerNode.sphere.position,
                         targetNode.sphere.position
@@ -181,16 +195,16 @@
             requestAnimationFrame(animate);
             
             if (isTransitioning) {
-                transitionProgress += 0.005; // 移動スピード（0.01〜0.05で調整）
+                transitionProgress += 0.005; // Cinematic slow-motion
+                
                 if (transitionProgress >= 1) {
                     transitionProgress = 1;
                     isTransitioning = false;
-                    if (currentYear === '1989') drawLines(); // 移動完了後に鎖を描く
+                    drawLines();
                 }
 
                 Object.values(points).forEach(node => {
                     if (node.sphere.visible) {
-                        // 線形補間(lerp)で滑らかに移動
                         node.sphere.position.lerpVectors(node.startPos, node.endPos, transitionProgress);
                         node.label.position.copy(node.sphere.position).y += 15;
                     }
