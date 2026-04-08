@@ -159,7 +159,7 @@ function drawLines() {
 
     const centerNode = points['Bank'];
     if (!centerNode) return;
-    
+    console.log(`${currentYear} Bank to Construction distance: ${distance}`);
     // データセットだけは切り替えるが、描画ルールは「完全に」共通化
     const targetData = (currentYear === '1989') ? data1989 : data2026;
     const lineColor = (currentYear === '1989') ? 0xff4444 : 0x00d4ff;
