@@ -154,57 +154,55 @@
         }
 
 function drawLines() {
-            lines.forEach(line => scene.remove(line));
-            lines = [];
+    lines.forEach(line => scene.remove(line));
+    lines = [];
 
-            const centerNode = points['Bank'];
-            if (!centerNode) return;
+    const centerNode = points['Bank'];
+    if (!centerNode) return;
+    
+    // データセットだけは切り替えるが、描画ルールは「完全に」共通化
+    const targetData = (currentYear === '1989') ? data1989 : data2026;
+    const lineColor = (currentYear === '1989') ? 0xff4444 : 0x00d4ff;
+    
+    targetData.forEach(item => {
+        if (item.id === 'Bank') return;
+        const targetNode = points[item.id];
+        
+        if (targetNode && targetNode.sphere.visible) {
+            const startPos = centerNode.sphere.position;
+            const endPos = targetNode.sphere.position;
+            const distance = startPos.distanceTo(endPos);
             
-            const targetData = (currentYear === '1989') ? data1989 : data2026;
-            const lineColor = (currentYear === '1989') ? 0xff4444 : 0x00d4ff;
+            // 【完全共通ルール：一切の if (year === ...) を排除】
+            // 距離に対して一意に決まる太さ（radius）
+            let radius = 60 / (distance + 1); 
             
-            targetData.forEach(item => {
-                if (item.id === 'Bank') return;
-                const targetNode = points[item.id];
-                
-                if (targetNode && targetNode.sphere.visible) {
-                    const startPos = centerNode.sphere.position;
-                    const endPos = targetNode.sphere.position;
-                    const distance = startPos.distanceTo(endPos);
-                    
-                    // 【共通の物理ルール】
-                    // 距離が近いほど太く、遠いほど細くする
-                    // 1989年は距離50〜100なので radius は 1.5〜0.8 程度（太い）
-                    // 2026年は距離500〜800なので radius は 0.1〜0.05 程度（極細）
-                    let radius = 80 / (distance + 1); 
-                    
-                    // 見た目のコントラストを調整（共通）
-                    if (radius > 2.0) radius = 2.0; // 太すぎ防止
-                    if (radius < 0.05) radius = 0.01; // 遠ければ見えないほど細く
+            // 閾値処理も共通
+            if (radius > 1.5) radius = 1.5; 
+            if (radius < 0.05) radius = 0.01; 
 
-                    // 線ではなく「円柱（チューブ）」で描画
-                    const direction = new THREE.Vector3().subVectors(endPos, startPos);
-                    const geometry = new THREE.CylinderGeometry(radius, radius, distance, 8);
-                    
-                    // 円柱を2点間に配置するための計算
-                    geometry.translate(0, distance / 2, 0);
-                    geometry.rotateX(Math.PI / 2);
-                    
-                    const material = new THREE.MeshBasicMaterial({ 
-                        color: lineColor, 
-                        transparent: true, 
-                        opacity: radius > 0.5 ? 0.6 : 0.2 // 太いほど不透明、細いほど透明に
-                    });
-
-                    const mesh = new THREE.Mesh(geometry, material);
-                    mesh.position.copy(startPos);
-                    mesh.lookAt(endPos);
-                    
-                    scene.add(mesh);
-                    lines.push(mesh);
-                }
+            const direction = new THREE.Vector3().subVectors(endPos, startPos);
+            const geometry = new THREE.CylinderGeometry(radius, radius, distance, 8);
+            
+            geometry.translate(0, distance / 2, 0);
+            geometry.rotateX(Math.PI / 2);
+            
+            // 透明度も radius（つまり距離）だけに依存させる
+            const material = new THREE.MeshBasicMaterial({ 
+                color: lineColor, 
+                transparent: true, 
+                opacity: Math.min(0.6, radius * 0.5) 
             });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.copy(startPos);
+            mesh.lookAt(endPos);
+            
+            scene.add(mesh);
+            lines.push(mesh);
         }
+    });
+}
         function animate() {
             requestAnimationFrame(animate);
             
