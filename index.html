@@ -34,6 +34,7 @@
     <script>
         let scene, camera, renderer, controls;
         let points = {}; 
+        let lines = []; // 追加：鎖（線）を管理する配列
         let data1989 = [], data2026 = [];
 
         async function init() {
@@ -62,12 +63,10 @@
 
                 document.getElementById('loading').style.display = 'none';
                 
-                // 全ての業種IDを取得して点とラベルを作成
                 const allIds = new Set([...data1989.map(d => d.id), ...data2026.map(d => d.id)]);
                 const geometry = new THREE.SphereGeometry(8, 32, 32);
 
                 allIds.forEach(id => {
-                    // ノード（球体）
                     const material = new THREE.MeshPhongMaterial({ 
                         color: 0x00d4ff, 
                         emissive: 0x002244,
@@ -76,7 +75,6 @@
                     const sphere = new THREE.Mesh(geometry, material);
                     scene.add(sphere);
 
-                    // ラベル（Sprite）
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.width = 256;
@@ -112,6 +110,10 @@
             const targetColor = (year === '1989') ? 0xff4444 : 0x00d4ff;
             const targetEmissive = (year === '1989') ? 0x440000 : 0x002244;
 
+            // 既存の線を削除
+            lines.forEach(line => scene.remove(line));
+            lines = [];
+
             Object.values(points).forEach(p => {
                 p.sphere.visible = false;
                 p.label.visible = false;
@@ -129,9 +131,30 @@
                 }
             });
 
+            // 1989年限定：銀行(Bank)を起点とした「鎖」の描画
+            if (year === '1989') {
+                const centerNode = points['Bank'];
+                if (centerNode) {
+                    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.3 });
+                    targetData.forEach(item => {
+                        if (item.id === 'Bank') return;
+                        const targetNode = points[item.id];
+                        if (targetNode) {
+                            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                                centerNode.sphere.position,
+                                targetNode.sphere.position
+                            ]);
+                            const line = new THREE.Line(lineGeometry, lineMaterial);
+                            scene.add(line);
+                            lines.push(line);
+                        }
+                    });
+                }
+            }
+
             const descText = (year === '1989') ? 
-                "【1989年】株式持ち合いによる平面構造（赤いタイヤ）" : 
-                "【2026年】自律的な多次元構造（青いクリスタル）";
+                "【1989年】株式持ち合いによる平面構造。銀行をハブとした強固な相関の鎖に縛られています。" : 
+                "【2026年】鎖は解かれ、各セクターは独自のベクトルで3次元空間を自由に展開しています。";
             document.getElementById('desc').innerText = descText;
         }
 
